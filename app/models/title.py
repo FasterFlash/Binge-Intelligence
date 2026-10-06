@@ -5,6 +5,7 @@ Layers (see design notes):
   1. Factual      — from TMDB, ground truth, never hallucinate over this
   2. Tag vectors  — LLM-enriched, MUST pass validate_tags() before insert
   3. Simulation   — assigned by us, drives the behavior engine
+  4. Media        — poster/backdrop URLs stored in MinIO, served to the UI
 
 Run this file directly to create the table in the DB (via Base.metadata.create_all),
 or wire it into an Alembic migration later once the schema stabilizes.
@@ -29,6 +30,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -106,6 +108,11 @@ class Title(Base):
     platform_leaving_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_platform_original: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    # --- Layer 4: Media (served from MinIO, pulled from TMDB) ---
+    # Full public URLs; NULL means fetch not yet run or no image available.
+    poster_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    backdrop_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # --- Bookkeeping ---
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -130,10 +137,29 @@ class Title(Base):
         Index("ix_titles_tones_gin", "tones", postgresql_using="gin"),
         Index("ix_titles_fame", "fame"),
         Index("ix_titles_country", "country"),
+        Index("ix_titles_has_poster", "poster_url"),
     )
 
     def __repr__(self) -> str:
         return f"<Title {self.title!r} ({self.release_year}, {self.content_type.value})>"
+
+
+def ensure_media_columns(engine) -> None:
+    """
+    Add poster_url / backdrop_url columns to an EXISTING titles table that
+    was created before the Layer-4 fields existed. Idempotent.
+    `Base.metadata.create_all` only creates missing tables — it won't ALTER.
+    """
+    with engine.begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE titles ADD COLUMN IF NOT EXISTS poster_url   TEXT"
+        ))
+        conn.execute(text(
+            "ALTER TABLE titles ADD COLUMN IF NOT EXISTS backdrop_url TEXT"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_titles_has_poster ON titles(poster_url)"
+        ))
 
 
 if __name__ == "__main__":
@@ -144,4 +170,5 @@ if __name__ == "__main__":
     )
     engine = create_engine(db_url)
     Base.metadata.create_all(engine)
-    print(f"titles table created (or already existed) at {db_url}")
+    ensure_media_columns(engine)
+    print(f"titles table created / migrated at {db_url}")
