@@ -35,7 +35,7 @@ from app.models.title import Title
 from config.vocabularies import THEMES_SET, TONES_SET, validate_tags
 
 
-MAPPED_DIR = ROOT / "mapped_tt"
+MAPPED_DIR = ROOT / "mapped"
 REPORT_PATH = ROOT / "exports" / "import_rejects.csv"
 
 
