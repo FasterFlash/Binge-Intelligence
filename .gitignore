@@ -1,7 +1,45 @@
+# ---- Secrets ----
 .env
+.env.local
+.streamlit/secrets.toml
+
+# ---- Python ----
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .venv/
 venv/
+env/
 *.egg-info/
+*.egg
+build/
+dist/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- IDE / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+*.sublime-*
+
+# ---- Project artifacts (generated, not source) ----
+duckdb/*.duckdb
+duckdb/*.parquet
+duckdb/*.csv
+*.log
+logs/
+
+# ---- Local-only outputs ----
+exports/
+scratch/
+tmp/
+
+# ---- Streamlit runtime ----
+.streamlit/cache/
